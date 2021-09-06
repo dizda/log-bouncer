@@ -1,5 +1,5 @@
 #[macro_use]
-extern crate tracing;
+extern crate log;
 
 pub mod output;
 mod publisher;
@@ -10,14 +10,12 @@ use crate::publisher::Publisher;
 use crate::watcher::Watcher;
 use std::error::Error;
 use tokio::sync::mpsc;
-use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::EnvFilter;
 
 const FILE: &'static str = "test.log";
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
-    let log = tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env());
-    log.finish().init();
+    env_logger::init();
+    info!("Started!");
 
     let (tx, rx) = mpsc::channel::<String>(1);
 
