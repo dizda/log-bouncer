@@ -24,6 +24,9 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     std::thread::spawn(move || {
         log_watcher.watch(&mut move |line: String| {
+            // TODO: may be useful to return |(pos, line)| rather than |line|
+            // TODO: may not be good if this daemon stops while the proxy is still running
+            //       it may loose track of the last position and start over again.
             if let Err(e) = tx.blocking_send(line) {
                 error!("{}", e);
             }
