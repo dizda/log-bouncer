@@ -20,18 +20,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     log.finish().init();
 
     let (tx, mut rx) = mpsc::channel::<String>(1);
+
+    // TODO: before opening this file, check if it's larger than 0 byte, if yes, we rotate it before
+    //       registering
     let mut log_watcher = LogWatcher::register(FILE)?;
-    let mut cpt: usize = 0;
 
     std::thread::spawn(move || {
         log_watcher.watch(&mut move |line: String| {
-            // TODO: may not be good if this daemon stops while the proxy is still running
-            //       it may loose track of the last position and start over again.
-            cpt += 1;
-            debug!("{}: {}", cpt, &line);
-
             if let Err(e) = tx.blocking_send(line) {
-                error!("{}: {}", cpt, e);
+                panic!("Can't send to mpsc: {}", e); // this is a fatal error
             }
 
             LogWatcherAction::None
