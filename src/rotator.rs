@@ -1,3 +1,6 @@
+use chrono::Utc;
+use std::fs;
+use std::fs::File;
 use std::time::Duration;
 
 /// Rotator has 2 missions
@@ -8,18 +11,29 @@ use std::time::Duration;
 pub struct Rotator {
     filename: String,
     interval: Duration,
+    date_format: String,
 }
 
 impl Rotator {
-    pub fn new(filename: &str, interval: Duration) -> Self {
+    pub fn new(filename: &str, interval: Duration, date_format: Option<String>) -> Self {
         Self {
             filename: filename.to_owned(),
+            date_format: date_format.unwrap_or_else(|| "%Y-%m-%d-%H-%M-%S".to_string()),
             interval,
         }
     }
 
     fn rotate(&self) {
         // do something
+        let now = Utc::now();
+        let dt_str = now.format(&self.date_format).to_string();
+        debug!("{}", dt_str);
+        let new_filename = format!("{}.{}", self.filename, dt_str);
+
+        fs::rename(&self.filename, new_filename);
+
+        // todo: return error if can't rename
+        // self.file = Some(File::create(&self.basename)?);
     }
 
     pub fn watch(self) {

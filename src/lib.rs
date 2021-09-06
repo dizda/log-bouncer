@@ -24,7 +24,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let (tx, rx) = mpsc::channel::<String>(1);
 
-    let rotator = Rotator::new(FILE, Duration::from_secs(5));
+    let rotator = Rotator::new(FILE, Duration::from_secs(5), None);
     let watcher = Watcher::new(FILE, tx)?;
     rotator.watch();
     watcher.work();
