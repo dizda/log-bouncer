@@ -21,14 +21,17 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let (tx, mut rx) = mpsc::channel::<String>(1);
     let mut log_watcher = LogWatcher::register(FILE)?;
+    let mut cpt: usize = 0;
 
     std::thread::spawn(move || {
         log_watcher.watch(&mut move |line: String| {
-            // TODO: may be useful to return |(pos, line)| rather than |line|
             // TODO: may not be good if this daemon stops while the proxy is still running
             //       it may loose track of the last position and start over again.
+            cpt += 1;
+            debug!("{}: {}", cpt, &line);
+
             if let Err(e) = tx.blocking_send(line) {
-                error!("{}", e);
+                error!("{}: {}", cpt, e);
             }
 
             LogWatcherAction::None
