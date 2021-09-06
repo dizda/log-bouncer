@@ -2,9 +2,11 @@
 extern crate tracing;
 
 pub mod output;
+mod watcher;
 
 use crate::output::stdout::StdOut;
 use crate::output::OutputAdapter;
+use crate::watcher::Watcher;
 use logwatcher::{LogWatcher, LogWatcherAction};
 use std::error::Error;
 use tokio::runtime::Runtime;
@@ -21,27 +23,20 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let (tx, mut rx) = mpsc::channel::<String>(1);
 
-    // TODO: before opening this file, check if it's larger than 0 byte, if yes, we rotate it before
-    //       registering
-    let mut log_watcher = LogWatcher::register(FILE)?;
+    let mut watcher = Watcher::new(FILE, tx)?;
+    watcher.work();
 
-    std::thread::spawn(move || {
-        log_watcher.watch(&mut move |line: String| {
-            if let Err(e) = tx.blocking_send(line) {
-                panic!("Can't send to mpsc: {}", e); // this is a fatal error
-            }
-
-            LogWatcherAction::None
-        });
-    });
-
-    process(StdOut {}, rx).await;
+    send_lines(StdOut {}, rx).await;
 
     Ok(())
 }
 
-async fn process<T: OutputAdapter>(fnc: T, mut rx: Receiver<String>) {
-    while let Some(i) = rx.recv().await {
-        fnc.send(i).await;
+/// Send lines to the defined output
+async fn send_lines<T: OutputAdapter>(fnc: T, mut rx: Receiver<String>) {
+    while let Some(string) = rx.recv().await {
+        if let Err(e) = fnc.send(string).await {
+            error!("{}", e);
+            break; // we exit the software
+        }
     }
 }
