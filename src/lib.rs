@@ -2,10 +2,12 @@
 extern crate tracing;
 
 pub mod output;
+mod publisher;
 mod watcher;
 
 use crate::output::stdout::StdOut;
 use crate::output::OutputAdapter;
+use crate::publisher::Publisher;
 use crate::watcher::Watcher;
 use logwatcher::{LogWatcher, LogWatcherAction};
 use std::error::Error;
@@ -26,17 +28,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let mut watcher = Watcher::new(FILE, tx)?;
     watcher.work();
 
-    send_lines(StdOut {}, rx).await;
+    Publisher::new(StdOut {}, rx).publish().await;
 
     Ok(())
-}
-
-/// Send lines to the defined output
-async fn send_lines<T: OutputAdapter>(fnc: T, mut rx: Receiver<String>) {
-    while let Some(string) = rx.recv().await {
-        if let Err(e) = fnc.send(string).await {
-            error!("{}", e);
-            break; // we exit the software
-        }
-    }
 }

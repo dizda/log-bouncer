@@ -10,6 +10,8 @@ impl OutputAdapter for StdOut {
         // test an error:
         // let not_found = std::io::Error::from(std::io::ErrorKind::NotFound);
         // Err(not_found)?;
+
+        //TODO: make sure amqp gets the ACK before moving to the next message
         Ok(())
     }
 }
