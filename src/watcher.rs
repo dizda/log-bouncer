@@ -26,6 +26,8 @@ impl Watcher {
             self.log_watcher.watch(&mut move |line: String| {
                 if let Err(e) = tx.blocking_send(line) {
                     panic!("Can't send to mpsc: {}", e); // this is a fatal error
+                } else {
+                    trace!("Line sent via mpsc!");
                 }
 
                 LogWatcherAction::None

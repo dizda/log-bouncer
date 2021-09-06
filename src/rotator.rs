@@ -1,0 +1,48 @@
+use std::time::Duration;
+
+/// Rotator has 2 missions
+///   1. Rotate at launch if target file exists
+///   2. Check periodically if file is larger than defined size then rotate
+///
+/// The rotate will rename the file from `input.log` to `input-%Y-%m-%d-%H-%M-%S.log`
+pub struct Rotator {
+    filename: String,
+    interval: Duration,
+}
+
+impl Rotator {
+    pub fn new(filename: &str, interval: Duration) -> Self {
+        Self {
+            filename: filename.to_owned(),
+            interval,
+        }
+    }
+
+    fn rotate(&self) {
+        // do something
+    }
+
+    pub fn watch(self) {
+        tokio::spawn(async move { self.work().await });
+    }
+
+    async fn work(&self) {
+        info!(
+            "Will check for file rotation every {}ms",
+            self.interval.as_millis()
+        );
+        let mut interval = tokio::time::interval(self.interval);
+
+        // first tick completes immediately
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+            debug!("Tick: do a job");
+
+            // do job
+            self.rotate();
+            debug!("Tick: lap")
+        }
+    }
+}

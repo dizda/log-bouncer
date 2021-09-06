@@ -10,6 +10,7 @@ impl OutputAdapter for StdOut {
         // test an error:
         // let not_found = std::io::Error::from(std::io::ErrorKind::NotFound);
         // Err(not_found)?;
+        //tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         //TODO: make sure amqp gets the ACK before moving to the next message
         Ok(())
