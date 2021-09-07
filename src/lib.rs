@@ -15,7 +15,7 @@ use std::time::Duration;
 use tokio::sync::{mpsc, watch};
 
 const FILE: &'static str = "test.log";
-const MAX_FILESIZE: u64 = 10;
+const MAX_FILESIZE: u64 = 1000;
 
 // TODO: 1. Add Opt such as Clap or StructOpt
 
@@ -30,7 +30,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let (state_tx, state_rx) = watch::channel::<u64>(0);
 
     // Rotate the file periodically
-    let rotator = Rotator::new(FILE, Duration::from_secs(5), state_rx, MAX_FILESIZE, None);
+    let rotator = Rotator::new(FILE, Duration::from_secs(5), state_rx, MAX_FILESIZE, None)?;
     // Tail the file and send new entries
     let watcher = Watcher::new(FILE, publish_tx)?.work();
 

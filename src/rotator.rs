@@ -1,5 +1,4 @@
 use chrono::Utc;
-use std::error::Error;
 use std::fs::{File, Metadata};
 use std::io::{Read, Seek, Write};
 use std::time::{Duration, SystemTime};
@@ -7,7 +6,15 @@ use tokio::fs;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+    #[error("i/o: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("SystemTime: {0}")]
+    SystemTime(#[from] std::time::SystemTimeError),
+}
+
+type Result<T> = std::result::Result<T, Error>;
 
 const DATE_FORMAT: &'static str = "%Y-%m-%d-%H-%M-%S";
 
@@ -33,8 +40,11 @@ impl Rotator {
         state_rx: watch::Receiver<u64>,
         max_size: u64,
         date_format: Option<String>,
-    ) -> Self {
-        let mut saved_state = SavedState::new(filename).unwrap();
+    ) -> Result<Self> {
+        // create if the file hasn't been created
+        let _file = Rotator::touch_file(&filename)?;
+
+        let mut saved_state = SavedState::new(filename)?;
 
         if !saved_state.is_exists() {
             info!("Saved state doesn't exist, we create it");
@@ -43,14 +53,25 @@ impl Rotator {
             info!("Saved state exists, we recover it");
         }
 
-        Self {
+        Ok(Self {
             filename: filename.to_owned(),
             date_format: date_format.unwrap_or_else(|| DATE_FORMAT.to_owned()),
             state_rx,
             state: saved_state,
             max_size,
             interval,
-        }
+        })
+    }
+
+    /// Create or use a file
+    fn touch_file(filename: &str) -> Result<File> {
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&filename)?;
+
+        Ok(file)
     }
 
     async fn check_file_exists(&self) -> Result<bool> {
@@ -60,7 +81,9 @@ impl Rotator {
     }
 
     async fn can_be_rotated(&self) -> Result<bool> {
-        self.check_file_exists().await?;
+        if !self.check_file_exists().await? {
+            return Ok(false);
+        }
 
         let metadata = fs::metadata(&self.filename).await?;
 
@@ -72,8 +95,6 @@ impl Rotator {
     }
 
     async fn rotate(&self) -> Result<()> {
-        self.check_file_exists().await?;
-
         let now = Utc::now();
         let timestamp = now.format(&self.date_format).to_string();
         let new_filename = format!("{}.{}", self.filename, timestamp);
@@ -104,23 +125,29 @@ impl Rotator {
 
         loop {
             interval.tick().await;
-            debug!("Tick: do a job");
+            trace!("Tick: do a job");
 
-            // if self.state_rx.changed().await.is_ok() {
-            // TODO: Can use AtomicU64 here?
+            // TODO: Better to use an AtomicU64 here?
             let pos = *self.state_rx.borrow_and_update();
 
             if let Err(e) = self.state.save(pos) {
                 error!("Can't save current state: `{}`", e);
             }
-            // }
 
-            // do job
-            if let Err(e) = self.rotate().await {
-                error!("Can't rotate the file: `{}`", e);
+            match self.can_be_rotated().await {
+                Ok(res) => {
+                    if res {
+                        if let Err(e) = self.rotate().await {
+                            error!("Can't rotate the file: `{}`", e);
+                        }
+                    } else {
+                        debug!("File can't be rotated, yet");
+                    }
+                }
+                Err(e) => debug!("Can't rotate the file: `{}`", e),
             }
 
-            debug!("Tick: lap");
+            trace!("Tick: lap");
         }
     }
 }
