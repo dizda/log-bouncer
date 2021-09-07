@@ -9,12 +9,13 @@ mod watcher;
 use crate::output::stdout::StdOut;
 use crate::publisher::Publisher;
 use crate::rotator::Rotator;
-use crate::watcher::Watcher;
+use crate::watcher::{LineInfo, Watcher};
 use std::error::Error;
 use std::time::Duration;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 const FILE: &'static str = "test.log";
+const MAX_FILESIZE: u64 = 10;
 
 // TODO: 1. Add Opt such as Clap or StructOpt
 
@@ -22,14 +23,27 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     env_logger::init();
     info!("Started!");
 
-    let (tx, rx) = mpsc::channel::<String>(1);
+    // Bounded 1 channel to make sure the watcher won't make any more progress in case rabbitmq
+    // doesn't accept any more items.
+    let (publish_tx, publish_rx) = mpsc::channel::<LineInfo>(1);
+    // The last position on the file to sync
+    let (state_tx, state_rx) = watch::channel::<u64>(0);
 
-    let rotator = Rotator::new(FILE, Duration::from_secs(5), None);
-    let watcher = Watcher::new(FILE, tx)?;
-    rotator.watch();
-    watcher.work();
+    // Rotate the file periodically
+    let rotator = Rotator::new(FILE, Duration::from_secs(5), state_rx, MAX_FILESIZE, None);
+    // Tail the file and send new entries
+    let watcher = Watcher::new(FILE, publish_tx)?.work();
 
-    Publisher::new(StdOut {}, rx).publish().await;
+    let rotator_handle = rotator.watch();
+
+    // Send the new entries to the publisher, eg. amqp
+    let mut publisher = Publisher::new(StdOut {}, publish_rx, state_tx);
+
+    tokio::select! {
+        _ = rotator_handle => {}
+        _ = watcher.notified() => {}
+        _ = publisher.publish() => {}
+    };
 
     Ok(())
 }

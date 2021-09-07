@@ -1,46 +1,98 @@
 use chrono::Utc;
-use std::fs;
-use std::fs::File;
-use std::time::Duration;
+use std::error::Error;
+use std::fs::{File, Metadata};
+use std::io::{Read, Seek, Write};
+use std::time::{Duration, SystemTime};
+use tokio::fs;
+use tokio::sync::watch;
+use tokio::task::JoinHandle;
+
+type Result<T> = std::result::Result<T, Box<dyn Error>>;
+
+const DATE_FORMAT: &'static str = "%Y-%m-%d-%H-%M-%S";
 
 /// Rotator has 2 missions
 ///   1. Rotate at launch if target file exists
 ///   2. Check periodically if file is larger than defined size then rotate
 ///
 /// The rotate will rename the file from `input.log` to `input-%Y-%m-%d-%H-%M-%S.log`
+/// eg. `systemd.log.2021-09-07-03-37-53`
 pub struct Rotator {
     filename: String,
     interval: Duration,
+    state_rx: watch::Receiver<u64>,
+    state: SavedState,
     date_format: String,
+    max_size: u64,
 }
 
 impl Rotator {
-    pub fn new(filename: &str, interval: Duration, date_format: Option<String>) -> Self {
+    pub fn new(
+        filename: &str,
+        interval: Duration,
+        state_rx: watch::Receiver<u64>,
+        max_size: u64,
+        date_format: Option<String>,
+    ) -> Self {
+        let mut saved_state = SavedState::new(filename).unwrap();
+
+        if !saved_state.is_exists() {
+            info!("Saved state doesn't exist, we create it");
+            saved_state.save(0);
+        } else {
+            info!("Saved state exists, we recover it");
+        }
+
         Self {
             filename: filename.to_owned(),
-            date_format: date_format.unwrap_or_else(|| "%Y-%m-%d-%H-%M-%S".to_string()),
+            date_format: date_format.unwrap_or_else(|| DATE_FORMAT.to_owned()),
+            state_rx,
+            state: saved_state,
+            max_size,
             interval,
         }
     }
 
-    fn rotate(&self) {
-        // do something
+    async fn check_file_exists(&self) -> Result<bool> {
+        let metadata = fs::metadata(&self.filename).await?;
+
+        Ok(metadata.is_file())
+    }
+
+    async fn can_be_rotated(&self) -> Result<bool> {
+        self.check_file_exists().await?;
+
+        let metadata = fs::metadata(&self.filename).await?;
+
+        if metadata.len() > self.max_size {
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+
+    async fn rotate(&self) -> Result<()> {
+        self.check_file_exists().await?;
+
         let now = Utc::now();
-        let dt_str = now.format(&self.date_format).to_string();
-        debug!("{}", dt_str);
-        let new_filename = format!("{}.{}", self.filename, dt_str);
+        let timestamp = now.format(&self.date_format).to_string();
+        let new_filename = format!("{}.{}", self.filename, timestamp);
+        debug!("Renaming `{}` to `{}`...", &self.filename, new_filename);
 
-        fs::rename(&self.filename, new_filename);
+        fs::rename(&self.filename, &new_filename).await?;
 
-        // todo: return error if can't rename
-        // self.file = Some(File::create(&self.basename)?);
+        info!("File rotated to `{}`", new_filename);
+
+        Ok(())
     }
 
-    pub fn watch(self) {
-        tokio::spawn(async move { self.work().await });
+    /// Launch the cron job
+    pub fn watch(mut self) -> JoinHandle<()> {
+        tokio::spawn(async move { self.work().await })
     }
 
-    async fn work(&self) {
+    /// The job that execute log rotation
+    async fn work(&mut self) {
         info!(
             "Will check for file rotation every {}ms",
             self.interval.as_millis()
@@ -54,9 +106,64 @@ impl Rotator {
             interval.tick().await;
             debug!("Tick: do a job");
 
+            // if self.state_rx.changed().await.is_ok() {
+            // TODO: Can use AtomicU64 here?
+            let pos = *self.state_rx.borrow_and_update();
+
+            if let Err(e) = self.state.save(pos) {
+                error!("Can't save current state: `{}`", e);
+            }
+            // }
+
             // do job
-            self.rotate();
-            debug!("Tick: lap")
+            if let Err(e) = self.rotate().await {
+                error!("Can't rotate the file: `{}`", e);
+            }
+
+            debug!("Tick: lap");
         }
+    }
+}
+
+pub struct SavedState {
+    filename: String,
+    /// State file
+    state_file: File,
+}
+
+impl SavedState {
+    pub fn new(filename: &str) -> Result<Self> {
+        let state_filename = format!(".{}-file-trailer-saved-state", filename);
+
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&state_filename)?;
+
+        Ok(Self {
+            filename: filename.to_owned(),
+            state_file: file,
+        })
+    }
+
+    pub fn is_exists(&self) -> bool {
+        self.state_file.metadata().unwrap().len() > 0
+    }
+
+    pub fn save(&mut self, pos: u64) -> Result<()> {
+        debug!("Saving a sate at position <{}>", pos);
+        let metadata = std::fs::metadata(&self.filename)?;
+        let date_created = metadata
+            .created()
+            .unwrap()
+            .duration_since(SystemTime::UNIX_EPOCH)?;
+
+        let data = format!("{};{}", date_created.as_secs(), pos);
+        self.state_file.set_len(0)?; // truncate the file before writing it
+        self.state_file.flush()?;
+        self.state_file.write_all(data.as_bytes())?;
+
+        Ok(())
     }
 }
