@@ -181,10 +181,7 @@ impl SavedState {
     pub fn save(&mut self, pos: u64) -> Result<()> {
         debug!("Saving a sate at position <{}>", pos);
         let metadata = std::fs::metadata(&self.filename)?;
-        let date_created = metadata
-            .created()
-            .unwrap()
-            .duration_since(SystemTime::UNIX_EPOCH)?;
+        let date_created = metadata.created()?.duration_since(SystemTime::UNIX_EPOCH)?;
 
         let data = format!("{};{}", date_created.as_secs(), pos);
         self.state_file.set_len(0)?; // truncate the file before writing it
