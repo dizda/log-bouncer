@@ -18,5 +18,5 @@ env_logger = "0.9.0"
 async-trait = "0.1.51"
 chrono = "0.4.19"
 thiserror = "1.0.29"
-amqp-lapin-helper = { path = "../amqp-lapin-helper" }
+amqp-lapin-helper = "0.1"
 clap = "3.0.0-beta.4"

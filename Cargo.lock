@@ -59,7 +59,9 @@ dependencies = [
 
 [[package]]
 name = "amqp-lapin-helper"
-version = "0.1.0"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "290d1b3621edd20e702fe0d5a52c0326a862c27d2040047c55b7f1b68298b207"
 dependencies = [
  "anyhow",
  "async-trait",
