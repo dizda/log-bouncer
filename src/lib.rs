@@ -19,7 +19,8 @@ const MAX_FILESIZE: u64 = 1000;
 const ROTATE_FILE_PERIOD: Duration = Duration::from_secs(5);
 const FILENAME_DATE_FORMAT: Option<&'static str> = None;
 
-// TODO: 1. Add Opt such as Clap or StructOpt
+// TODO: 1. Add Opt such as Clap
+//       2. Rotate at a Line break
 
 pub async fn run() -> Result<(), Box<dyn Error>> {
     env_logger::init();
