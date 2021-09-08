@@ -16,6 +16,8 @@ use tokio::sync::{mpsc, watch};
 
 const FILE: &'static str = "test.log";
 const MAX_FILESIZE: u64 = 1000;
+const ROTATE_FILE_PERIOD: Duration = Duration::from_secs(5);
+const FILENAME_DATE_FORMAT: Option<&'static str> = None;
 
 // TODO: 1. Add Opt such as Clap or StructOpt
 
@@ -30,7 +32,13 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     let (state_tx, state_rx) = watch::channel::<u64>(0);
 
     // Rotate the file periodically
-    let rotator = Rotator::new(FILE, Duration::from_secs(5), state_rx, MAX_FILESIZE, None)?;
+    let rotator = Rotator::new(
+        FILE,
+        ROTATE_FILE_PERIOD,
+        state_rx,
+        MAX_FILESIZE,
+        FILENAME_DATE_FORMAT,
+    )?;
     state_tx.send(rotator.get_position()); // we store the last position
 
     // Tail the file and send new entries

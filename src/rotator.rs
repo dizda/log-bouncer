@@ -28,11 +28,17 @@ const DATE_FORMAT: &'static str = "%Y-%m-%d-%H-%M-%S";
 /// The rotate will rename the file from `input.log` to `input-%Y-%m-%d-%H-%M-%S.log`
 /// eg. `systemd.log.2021-09-07-03-37-53`
 pub struct Rotator {
+    /// Log file that needs to be watched & rotated
     filename: String,
+    /// Rotation checks interval
     interval: Duration,
+    /// Receive the current offset position on the file
     state_rx: watch::Receiver<u64>,
+    /// The SavedState will be saved in a file.
     state: SavedState,
+    /// Date format the logs will contain once rotated
     date_format: String,
+    /// Rotate after reaching this file size
     max_size: u64,
     /// The position that has to be resumed from
     pos: u64,
@@ -44,7 +50,7 @@ impl Rotator {
         interval: Duration,
         state_rx: watch::Receiver<u64>,
         max_size: u64,
-        date_format: Option<String>,
+        date_format: Option<&str>,
     ) -> Result<Self> {
         // create if the file hasn't been created
         let _file = Rotator::touch_file(&filename)?;
@@ -55,7 +61,7 @@ impl Rotator {
 
         Ok(Self {
             filename: filename.to_owned(),
-            date_format: date_format.unwrap_or_else(|| DATE_FORMAT.to_owned()),
+            date_format: date_format.unwrap_or_else(|| DATE_FORMAT).to_string(),
             state_rx,
             state: saved_state,
             max_size,
@@ -176,6 +182,7 @@ impl Rotator {
     }
 }
 
+/// The SavedState will be saved in a file.
 pub struct SavedState {
     /// Filename of the log file in order to get the metadata
     filename: String,
@@ -233,10 +240,6 @@ impl SavedState {
         }
     }
 
-    // pub fn is_exists(&self) -> bool {
-    //     self.state_file.metadata().unwrap().len() > 0
-    // }
-
     pub fn get_date_created(&self) -> Result<u64> {
         let metadata = std::fs::metadata(&self.filename)?;
         let date_created = metadata.created()?.duration_since(SystemTime::UNIX_EPOCH)?;
@@ -244,6 +247,7 @@ impl SavedState {
         Ok(date_created.as_secs())
     }
 
+    /// Save state in a file
     pub fn save(&mut self, pos: u64) -> Result<()> {
         debug!("Saving a sate at position <{}>", pos);
 
