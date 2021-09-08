@@ -6,7 +6,7 @@ use std::error::Error;
 #[async_trait]
 impl OutputAdapter for AmqpOutput {
     async fn send(&self, line: String) -> Result<(), Box<dyn Error>> {
-        println!("got = {}", line);
+        debug!("New line being published = {}", line);
 
         // confirm ack is not used, shall we use it?
         let _confirm = self
@@ -24,24 +24,10 @@ pub struct AmqpOutput {
     routing_key: String,
 }
 
-struct ToBeRemoved {}
-
-/// TODO to be removed
-#[async_trait]
-impl BrokerListener for ToBeRemoved {
-    fn exchange_name(&self) -> &'static str {
-        todo!()
-    }
-
-    async fn consume(&self, delivery: Delivery) -> amqp_lapin_helper::Result<()> {
-        todo!()
-    }
-}
-
 impl AmqpOutput {
     pub async fn new(uri: &str, exchange: &str, routing_key: &str) -> Result<Self, Box<dyn Error>> {
         // init the broker
-        let mut broker: Broker<ToBeRemoved> = Broker::new();
+        let mut broker: Broker = Broker::new();
         broker.init(uri).await?;
 
         // Set the publisher up then clone it

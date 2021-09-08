@@ -1,6 +1,7 @@
 use chrono::Utc;
 use std::fs::{File, Metadata};
 use std::io::{Read, Seek, Write};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 use tokio::fs;
 use tokio::io::SeekFrom;
@@ -29,7 +30,7 @@ const DATE_FORMAT: &'static str = "%Y-%m-%d-%H-%M-%S";
 /// eg. `systemd.log.2021-09-07-03-37-53`
 pub struct Rotator {
     /// Log file that needs to be watched & rotated
-    filename: String,
+    filename: PathBuf,
     /// Rotation checks interval
     interval: Duration,
     /// Receive the current offset position on the file
@@ -46,22 +47,22 @@ pub struct Rotator {
 
 impl Rotator {
     pub fn new(
-        filename: &str,
+        filename: PathBuf,
         interval: Duration,
         state_rx: watch::Receiver<u64>,
         max_size: u64,
-        date_format: Option<&str>,
+        date_format: Option<String>,
     ) -> Result<Self> {
         // create if the file hasn't been created
         let _file = Rotator::touch_file(&filename)?;
 
-        let mut saved_state = SavedState::new(filename)?;
+        let mut saved_state = SavedState::new(&filename)?;
 
         let pos = Self::recover_position(&mut saved_state)?;
 
         Ok(Self {
             filename: filename.to_owned(),
-            date_format: date_format.unwrap_or_else(|| DATE_FORMAT).to_string(),
+            date_format: date_format.unwrap_or_else(|| DATE_FORMAT.to_owned()),
             state_rx,
             state: saved_state,
             max_size,
@@ -76,12 +77,12 @@ impl Rotator {
     }
 
     /// Create or use a file
-    fn touch_file(filename: &str) -> Result<File> {
+    fn touch_file(filename: &PathBuf) -> Result<File> {
         let file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(false)
-            .open(&filename)?;
+            .open(filename)?;
 
         Ok(file)
     }
@@ -127,8 +128,8 @@ impl Rotator {
     async fn rotate(&self) -> Result<()> {
         let now = Utc::now();
         let timestamp = now.format(&self.date_format).to_string();
-        let new_filename = format!("{}.{}", self.filename, timestamp);
-        debug!("Renaming `{}` to `{}`...", &self.filename, new_filename);
+        let new_filename = format!("{:?}.{}", self.filename, timestamp);
+        debug!("Renaming `{:?}` to `{}`...", &self.filename, new_filename);
 
         fs::rename(&self.filename, &new_filename).await?;
 
@@ -185,14 +186,14 @@ impl Rotator {
 /// The SavedState will be saved in a file.
 pub struct SavedState {
     /// Filename of the log file in order to get the metadata
-    filename: String,
+    filename: PathBuf,
     /// State file
     state_file: File,
 }
 
 impl SavedState {
-    pub fn new(filename: &str) -> Result<Self> {
-        let state_filename = format!(".{}-file-trailer-saved-state", filename);
+    pub fn new(filename: &PathBuf) -> Result<Self> {
+        let state_filename = format!(".{:?}-file-trailer-saved-state", filename);
 
         let state_file = std::fs::OpenOptions::new()
             .read(true)

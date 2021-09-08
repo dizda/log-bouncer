@@ -1,5 +1,6 @@
 use logwatcher::{LogWatcher, LogWatcherAction, StartFrom};
 use std::error::Error;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread::JoinHandle;
 use tokio::sync::mpsc::Sender;
@@ -13,7 +14,7 @@ pub struct Watcher {
 }
 
 impl Watcher {
-    pub fn new(file: &str, position: u64, tx: Sender<LineInfo>) -> Result<Self, Box<dyn Error>> {
+    pub fn new(file: PathBuf, position: u64, tx: Sender<LineInfo>) -> Result<Self, Box<dyn Error>> {
         info!(
             "Will start to read the file from the position `{}`",
             position
