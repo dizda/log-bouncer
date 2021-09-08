@@ -26,13 +26,15 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
     // Bounded 1 channel to make sure the watcher won't make any more progress in case rabbitmq
     // doesn't accept any more items.
     let (publish_tx, publish_rx) = mpsc::channel::<LineInfo>(1);
-    // The last position on the file to sync
+    // The last position of the file to sync
     let (state_tx, state_rx) = watch::channel::<u64>(0);
 
     // Rotate the file periodically
     let rotator = Rotator::new(FILE, Duration::from_secs(5), state_rx, MAX_FILESIZE, None)?;
+    state_tx.send(rotator.get_position()); // we store the last position
+
     // Tail the file and send new entries
-    let watcher = Watcher::new(FILE, publish_tx)?.work();
+    let watcher = Watcher::new(FILE, rotator.get_position(), publish_tx)?.work();
 
     let rotator_handle = rotator.watch();
 

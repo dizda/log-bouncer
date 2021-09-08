@@ -3,11 +3,14 @@ use std::fs::{File, Metadata};
 use std::io::{Read, Seek, Write};
 use std::time::{Duration, SystemTime};
 use tokio::fs;
+use tokio::io::SeekFrom;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("corrupted saved state: {0}")]
+    CorruptedSavedState(String),
     #[error("i/o: {0}")]
     Io(#[from] std::io::Error),
     #[error("SystemTime: {0}")]
@@ -31,6 +34,8 @@ pub struct Rotator {
     state: SavedState,
     date_format: String,
     max_size: u64,
+    /// The position that has to be resumed from
+    pos: u64,
 }
 
 impl Rotator {
@@ -46,12 +51,7 @@ impl Rotator {
 
         let mut saved_state = SavedState::new(filename)?;
 
-        if !saved_state.is_exists() {
-            info!("Saved state doesn't exist, we create it");
-            saved_state.save(0);
-        } else {
-            info!("Saved state exists, we recover it");
-        }
+        let pos = Self::recover_position(&mut saved_state)?;
 
         Ok(Self {
             filename: filename.to_owned(),
@@ -60,7 +60,13 @@ impl Rotator {
             state: saved_state,
             max_size,
             interval,
+            pos,
         })
+    }
+
+    /// Get position we should start to read the file from
+    pub fn get_position(&self) -> u64 {
+        self.pos
     }
 
     /// Create or use a file
@@ -72,6 +78,24 @@ impl Rotator {
             .open(&filename)?;
 
         Ok(file)
+    }
+
+    fn recover_position(saved_state: &mut SavedState) -> Result<u64> {
+        match saved_state.read_file() {
+            Ok(pos) => {
+                info!("Saved state exists, we recover it");
+                Ok(pos)
+            }
+            Err(e) => match e {
+                Error::CorruptedSavedState(_) => {
+                    warn!("Corrupted saved state, we create a new one");
+                    let pos = 0; // starts from scratch
+                    saved_state.save(pos).unwrap();
+                    Ok(pos)
+                }
+                _ => Err(e),
+            },
+        }
     }
 
     async fn check_file_exists(&self) -> Result<bool> {
@@ -153,6 +177,7 @@ impl Rotator {
 }
 
 pub struct SavedState {
+    /// Filename of the log file in order to get the metadata
     filename: String,
     /// State file
     state_file: File,
@@ -162,7 +187,8 @@ impl SavedState {
     pub fn new(filename: &str) -> Result<Self> {
         let state_filename = format!(".{}-file-trailer-saved-state", filename);
 
-        let file = std::fs::OpenOptions::new()
+        let state_file = std::fs::OpenOptions::new()
+            .read(true)
             .write(true)
             .create(true)
             .truncate(false)
@@ -170,22 +196,60 @@ impl SavedState {
 
         Ok(Self {
             filename: filename.to_owned(),
-            state_file: file,
+            state_file,
         })
     }
 
-    pub fn is_exists(&self) -> bool {
-        self.state_file.metadata().unwrap().len() > 0
+    /// Recover the saved state if exists
+    pub fn read_file(&mut self) -> Result<u64> {
+        let metadata = self.state_file.metadata().unwrap();
+
+        if metadata.len() > 0 {
+            let mut string = String::new();
+            self.state_file.read_to_string(&mut string)?;
+
+            let state = string
+                .split(";")
+                .map(|e| e.parse::<u64>())
+                .filter_map(std::result::Result::ok)
+                .collect::<Vec<u64>>();
+
+            if state.len() != 2 {
+                Err(Error::CorruptedSavedState("Invalid size".into()))?;
+            }
+
+            let file_created_at = state.get(0).unwrap(); // unwrap() is safe here
+
+            if *file_created_at == self.get_date_created()? {
+                // same file, we recover the saved position
+                Ok(state.get(1).unwrap().clone()) // unwrap() is safe here too
+            } else {
+                // this is a new file, we start from 0
+                Ok(0)
+            }
+        } else {
+            // The state hasn't existed yet, we start from position 0
+            Ok(0)
+        }
+    }
+
+    // pub fn is_exists(&self) -> bool {
+    //     self.state_file.metadata().unwrap().len() > 0
+    // }
+
+    pub fn get_date_created(&self) -> Result<u64> {
+        let metadata = std::fs::metadata(&self.filename)?;
+        let date_created = metadata.created()?.duration_since(SystemTime::UNIX_EPOCH)?;
+
+        Ok(date_created.as_secs())
     }
 
     pub fn save(&mut self, pos: u64) -> Result<()> {
         debug!("Saving a sate at position <{}>", pos);
-        let metadata = std::fs::metadata(&self.filename)?;
-        let date_created = metadata.created()?.duration_since(SystemTime::UNIX_EPOCH)?;
 
-        let data = format!("{};{}", date_created.as_secs(), pos);
+        let data = format!("{};{}", self.get_date_created()?, pos);
         self.state_file.set_len(0)?; // truncate the file before writing it
-        self.state_file.flush()?;
+        self.state_file.seek(SeekFrom::Start(0))?; // reset the cursor position to the beginning
         self.state_file.write_all(data.as_bytes())?;
 
         Ok(())

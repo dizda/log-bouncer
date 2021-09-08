@@ -13,11 +13,14 @@ pub struct Watcher {
 }
 
 impl Watcher {
-    pub fn new(file: &str, tx: Sender<LineInfo>) -> Result<Self, Box<dyn Error>> {
+    pub fn new(file: &str, position: u64, tx: Sender<LineInfo>) -> Result<Self, Box<dyn Error>> {
+        info!(
+            "Will start to read the file from the position `{}`",
+            position
+        );
+
         Ok(Self {
-            // TODO: before opening this file, check if it's larger than 0 byte, if yes, we rotate it before
-            //       registering
-            log_watcher: LogWatcher::register(file, StartFrom::End)?,
+            log_watcher: LogWatcher::register(file, StartFrom::Offset(position))?,
             tx,
         })
     }
