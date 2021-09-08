@@ -78,6 +78,8 @@ impl Rotator {
 
     /// Create or use a file
     fn touch_file(filename: &PathBuf) -> Result<File> {
+        filename.to_str().expect("Invalid path");
+
         let file = std::fs::OpenOptions::new()
             .write(true)
             .create(true)
@@ -128,7 +130,7 @@ impl Rotator {
     async fn rotate(&self) -> Result<()> {
         let now = Utc::now();
         let timestamp = now.format(&self.date_format).to_string();
-        let new_filename = format!("{:?}.{}", self.filename, timestamp);
+        let new_filename = format!("{}.{}", self.filename.to_str().unwrap(), timestamp);
         debug!("Renaming `{:?}` to `{}`...", &self.filename, new_filename);
 
         fs::rename(&self.filename, &new_filename).await?;
@@ -193,7 +195,10 @@ pub struct SavedState {
 
 impl SavedState {
     pub fn new(filename: &PathBuf) -> Result<Self> {
-        let state_filename = format!(".{:?}-file-trailer-saved-state", filename);
+        let state_filename = format!(
+            ".{}-file-trailer-saved-state",
+            (*filename).to_str().unwrap()
+        );
 
         let state_file = std::fs::OpenOptions::new()
             .read(true)
