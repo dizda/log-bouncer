@@ -12,7 +12,6 @@ impl OutputAdapter for StdOut {
         // Err(not_found)?;
         //tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
-        //TODO: make sure amqp gets the ACK before moving to the next message
         Ok(())
     }
 }

@@ -6,6 +6,7 @@ mod publisher;
 mod rotator;
 mod watcher;
 
+use crate::output::amqp::AmqpOutput;
 use crate::output::stdout::StdOut;
 use crate::publisher::Publisher;
 use crate::rotator::Rotator;
@@ -47,8 +48,16 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     let rotator_handle = rotator.watch();
 
+    // let output = StdOut {};
+    let output = AmqpOutput::new(
+        "amqp://guest:guest@127.0.0.1:5672/%2f",
+        "traffic_exchange",
+        "traffic_log",
+    )
+    .await?;
+
     // Send the new entries to the publisher, eg. amqp
-    let mut publisher = Publisher::new(StdOut {}, publish_rx, state_tx);
+    let mut publisher = Publisher::new(output, publish_rx, state_tx);
 
     tokio::select! {
         _ = rotator_handle => {}

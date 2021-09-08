@@ -1,3 +1,4 @@
+pub mod amqp;
 pub mod stdout;
 
 use async_trait::async_trait;
