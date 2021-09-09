@@ -129,6 +129,7 @@ impl Rotator {
         }
     }
 
+    /// Move a file then create a new one
     async fn rotate(&self) -> Result<()> {
         let now = Utc::now();
         let timestamp = now.format(&self.date_format).to_string();
@@ -266,6 +267,7 @@ impl SavedState {
         }
     }
 
+    /// Get the `created_at` from the file, converted to a timestamp
     pub fn get_date_created(&self) -> Result<u64> {
         let metadata = std::fs::metadata(&self.filename)?;
         let date_created = metadata.created()?.duration_since(SystemTime::UNIX_EPOCH)?;
