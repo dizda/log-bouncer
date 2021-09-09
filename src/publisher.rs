@@ -2,6 +2,15 @@ use crate::output::OutputAdapter;
 use crate::watcher::LineInfo;
 use tokio::sync::{mpsc, watch};
 
+// TODO: Or we could use a different (probably safer) way to make the publisher concurrent:
+//         -When we publish, if success, push the line into a buffer, once the buffer reaches a certain
+//         cap, it will be pushed into a file. This file will become the backed up file, and date & time
+//         will be added to the name.
+//         -Thus, we're sure that no corruption can occurred.
+//         -If a message fail, we can retry until it goes through, then we add it to that buffer.
+//         -Everytime the buffer is being saved, we trim the head of the log of these msg as they
+//         don't need to be there anymore.
+
 pub struct Publisher<Output: OutputAdapter> {
     rx: mpsc::Receiver<LineInfo>,
     fnc: Output,
