@@ -7,6 +7,7 @@ use tokio::fs;
 use tokio::io::SeekFrom;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
+use tokio::time::MissedTickBehavior;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -159,6 +160,10 @@ impl Rotator {
         let mut rotate_interval = tokio::time::interval(self.rotation_interval);
         let mut state_interval = tokio::time::interval(self.save_state_interval);
 
+        // don't catch up the missed ticks
+        rotate_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        state_interval.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
         // first tick completes immediately
         rotate_interval.tick().await;
         state_interval.tick().await;
@@ -177,6 +182,9 @@ impl Rotator {
                                     if let Err(e) = self.state.reset() {
                                         error!("Can't reset the state, after rotating the file: `{}`", e);
                                     }
+
+                                    // we discard this value as we just changed the file
+                                    let _pos = *self.state_rx.borrow_and_update();
                                 }
                             } else {
                                 debug!("File can't be rotated, yet");
@@ -188,7 +196,12 @@ impl Rotator {
                 _ = state_interval.tick() => {
                     trace!("Tick(state): do a job");
 
-                    // TODO: Better to use an AtomicU64 here?
+                    // THIS BLOCKS THE THIS ENTIRE LOOP THREAD,
+                    // which is okay as we don't need to check the file every X seconds if nothing
+                    // has been written in it.
+                    self.state_rx.changed().await.expect("State_rx::changed() failed");
+
+                    // get the value
                     let pos = *self.state_rx.borrow_and_update();
 
                     if let Err(e) = self.state.save(pos) {
@@ -282,12 +295,7 @@ impl SavedState {
 
     /// Save state in a file
     pub fn save(&mut self, pos: u64) -> Result<()> {
-        if self.position == pos {
-            trace!("Position has already been saved");
-            return Ok(());
-        } else {
-            debug!("Saving a state at position <{}>", pos);
-        }
+        debug!("Saving a state at position <{}>", pos);
 
         let data = format!("{};{}", self.get_date_created()?, pos);
         self.state_file.set_len(0)?; // truncate the file before writing it

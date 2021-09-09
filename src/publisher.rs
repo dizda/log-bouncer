@@ -19,6 +19,12 @@ impl<Output: OutputAdapter> Publisher<Output> {
 
     /// Send lines to the defined output
     pub async fn publish(&mut self) {
+        // don't decrement the position sent if
+        // amqp returns response at a different order
+        let mut last_pos = 0;
+
+        // The messages are published in a sequential order,
+        // we might need to use `last_pos` if we want to send messages to amqp concurrently.
         while let Some((pos, line)) = self.rx.recv().await {
             if let Err(e) = self.fnc.send(line).await {
                 error!("{}", e);
