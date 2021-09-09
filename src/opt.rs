@@ -16,7 +16,8 @@ pub struct Opt {
     pub file: PathBuf,
 
     /// If the filesize go beyond that value, the file will get rotated
-    #[clap(short, long, default_value = "1000", env)]
+    /// value is in bytes
+    #[clap(short, long, default_value = "20000000", env)]
     pub max_filesize: u64,
 
     /// Check if the file needs to be rotated
