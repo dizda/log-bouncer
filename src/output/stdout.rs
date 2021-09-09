@@ -4,7 +4,7 @@ use std::error::Error;
 
 #[async_trait]
 impl OutputAdapter for StdOut {
-    async fn send(&self, position: u64, line: String) -> Result<(), Box<dyn Error>> {
+    async fn send(&self, _position: u64, line: String) -> Result<(), Box<dyn Error>> {
         println!("got = {}", line);
 
         // test an error:

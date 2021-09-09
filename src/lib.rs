@@ -40,7 +40,7 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
         opts.max_filesize,
         opts.date_format,
     )?;
-    state_tx.send(rotator.get_position()); // we store the last position
+    state_tx.send(rotator.get_position())?; // we store the last position
 
     // Tail the file and send new entries
     let watcher = TailReader::new(opts.file, rotator.get_position(), publish_tx)?.work();
