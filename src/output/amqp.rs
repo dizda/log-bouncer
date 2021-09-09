@@ -5,16 +5,14 @@ use std::error::Error;
 
 #[async_trait]
 impl OutputAdapter for AmqpOutput {
-    async fn send(&self, line: String) -> Result<(), Box<dyn Error>> {
-        debug!("New line being published = {}", line);
+    async fn send(&self, position: u64, line: String) -> Result<(), Box<dyn Error>> {
+        debug!("New line is being published <{}> = `{}`", position, line);
 
         // confirm ack is not used, shall we use it?
         let _confirm = self
             .publisher
             .publish_raw(&self.exchange, &self.routing_key, line.as_bytes().to_vec())
             .await?;
-
-        // tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         Ok(())
     }

@@ -6,5 +6,5 @@ use std::error::Error;
 
 #[async_trait]
 pub trait OutputAdapter {
-    async fn send(&self, line: String) -> Result<(), Box<dyn Error>>;
+    async fn send(&self, position: u64, line: String) -> Result<(), Box<dyn Error>>;
 }

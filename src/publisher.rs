@@ -26,8 +26,8 @@ impl<Output: OutputAdapter> Publisher<Output> {
         // The messages are published in a sequential order,
         // we might need to use `last_pos` if we want to send messages to amqp concurrently.
         while let Some((pos, line)) = self.rx.recv().await {
-            if let Err(e) = self.fnc.send(line).await {
-                error!("{}", e);
+            if let Err(e) = self.fnc.send(pos, line).await {
+                error!("pos <{}>: {}", pos, e);
                 break; // we exit the software
             } else {
                 // if successfully published, we memorize the last position sent
