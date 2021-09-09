@@ -10,12 +10,10 @@ mod watcher;
 pub use opt::{parse, Opt};
 
 use crate::output::amqp::AmqpOutput;
-use crate::output::stdout::StdOut;
 use crate::publisher::Publisher;
 use crate::rotator::Rotator;
 use crate::watcher::{LineInfo, TailReader};
 use std::error::Error;
-use std::path::PathBuf;
 use std::time::Duration;
 use tokio::sync::{mpsc, watch};
 

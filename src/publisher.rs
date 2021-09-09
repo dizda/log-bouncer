@@ -30,7 +30,7 @@ impl<Output: OutputAdapter> Publisher<Output> {
     pub async fn publish(&mut self) {
         // don't decrement the position sent if
         // amqp returns response at a different order
-        let mut last_pos = 0;
+        let _last_pos = 0;
 
         // The messages are published in a sequential order,
         // we might need to use `last_pos` if we want to send messages to amqp concurrently.

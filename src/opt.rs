@@ -1,4 +1,4 @@
-use clap::{AppSettings, Clap};
+use clap::{Clap};
 use std::path::PathBuf;
 
 /// # File-trailer

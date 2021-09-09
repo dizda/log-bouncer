@@ -2,7 +2,6 @@ use logwatcher::{LogWatcher, LogWatcherAction, StartFrom};
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::thread::JoinHandle;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::Notify;
 

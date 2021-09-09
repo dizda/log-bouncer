@@ -1,5 +1,5 @@
 use crate::output::OutputAdapter;
-use amqp_lapin_helper::{Broker, BrokerListener, Delivery};
+use amqp_lapin_helper::{Broker};
 use async_trait::async_trait;
 use std::error::Error;
 

@@ -1,5 +1,5 @@
 use chrono::Utc;
-use std::fs::{File, Metadata};
+use std::fs::{File};
 use std::io::{Read, Seek, Write};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
