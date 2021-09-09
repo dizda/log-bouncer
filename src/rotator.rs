@@ -131,9 +131,11 @@ impl Rotator {
         let now = Utc::now();
         let timestamp = now.format(&self.date_format).to_string();
         let new_filename = format!("{}.{}", self.filename.to_str().unwrap(), timestamp);
-        debug!("Renaming `{:?}` to `{}`...", &self.filename, new_filename);
+        debug!("Renaming {:?} to `{}`...", &self.filename, new_filename);
 
         fs::rename(&self.filename, &new_filename).await?;
+        // then create a new file
+        File::create(&self.filename)?;
 
         info!("File rotated to `{}`", new_filename);
 
@@ -172,6 +174,11 @@ impl Rotator {
                     if res {
                         if let Err(e) = self.rotate().await {
                             error!("Can't rotate the file: `{}`", e);
+                        } else {
+                            // file has been rotated, we reset the last position
+                            if let Err(e) = self.state.reset() {
+                                error!("Can't reset the state, after rotating the file: `{}`", e);
+                            }
                         }
                     } else {
                         debug!("File can't be rotated, yet");
@@ -251,6 +258,11 @@ impl SavedState {
         let date_created = metadata.created()?.duration_since(SystemTime::UNIX_EPOCH)?;
 
         Ok(date_created.as_secs())
+    }
+
+    /// Reset the position to the beginning of the file
+    pub fn reset(&mut self) -> Result<()> {
+        self.save(0)
     }
 
     /// Save state in a file

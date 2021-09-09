@@ -8,12 +8,13 @@ use tokio::sync::Notify;
 
 pub type LineInfo = (u64, String);
 
-pub struct Watcher {
+/// Read a file, then send every new line to the other thread
+pub struct TailReader {
     log_watcher: LogWatcher,
     tx: Sender<LineInfo>,
 }
 
-impl Watcher {
+impl TailReader {
     pub fn new(file: PathBuf, position: u64, tx: Sender<LineInfo>) -> Result<Self, Box<dyn Error>> {
         info!(
             "Will start to read the file from the position `{}`",

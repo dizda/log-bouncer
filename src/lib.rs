@@ -13,7 +13,7 @@ use crate::output::amqp::AmqpOutput;
 use crate::output::stdout::StdOut;
 use crate::publisher::Publisher;
 use crate::rotator::Rotator;
-use crate::watcher::{LineInfo, Watcher};
+use crate::watcher::{LineInfo, TailReader};
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -27,7 +27,7 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
 
     // Bounded 1 channel to make sure the watcher won't make any more progress in case rabbitmq
     // doesn't accept any more items.
-    let (publish_tx, publish_rx) = mpsc::channel::<LineInfo>(1);
+    let (publish_tx, publish_rx) = mpsc::channel::<LineInfo>(opts.buffer_publish);
     // The last position of the file to sync
     let (state_tx, state_rx) = watch::channel::<u64>(0);
 
@@ -42,7 +42,7 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
     state_tx.send(rotator.get_position()); // we store the last position
 
     // Tail the file and send new entries
-    let watcher = Watcher::new(opts.file, rotator.get_position(), publish_tx)?.work();
+    let watcher = TailReader::new(opts.file, rotator.get_position(), publish_tx)?.work();
 
     let rotator_handle = rotator.watch();
 

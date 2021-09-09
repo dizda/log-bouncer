@@ -30,6 +30,14 @@ pub struct Opt {
     #[clap(short, long)]
     pub date_format: Option<String>,
 
+    /// This is the capacity of the publish queue
+    /// If it's set to 1, it will wait for amqp to finish publish the only message in the buffer
+    /// before accepting new one.
+    ///
+    /// Which is conservative but not concurrent.
+    #[clap(long, default_value = "1", env)]
+    pub buffer_publish: usize,
+
     /// Uri of the AMQP server to publish to
     #[clap(long, default_value = "amqp://guest:guest@127.0.0.1:5672/%2f", env)]
     pub amqp_uri: String,
