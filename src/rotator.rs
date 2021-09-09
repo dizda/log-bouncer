@@ -20,8 +20,6 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
-const DATE_FORMAT: &'static str = "%Y-%m-%d-%H-%M-%S";
-
 /// Rotator has 2 missions
 ///   1. Rotate at launch if target file exists
 ///   2. Check periodically if file is larger than defined size then rotate
@@ -51,7 +49,7 @@ impl Rotator {
         interval: Duration,
         state_rx: watch::Receiver<u64>,
         max_size: u64,
-        date_format: Option<String>,
+        date_format: String,
     ) -> Result<Self> {
         // create if the file hasn't been created
         let _file = Rotator::touch_file(&filename)?;
@@ -62,7 +60,7 @@ impl Rotator {
 
         Ok(Self {
             filename: filename.to_owned(),
-            date_format: date_format.unwrap_or_else(|| DATE_FORMAT.to_owned()),
+            date_format,
             state_rx,
             state: saved_state,
             max_size,
@@ -198,12 +196,17 @@ pub struct SavedState {
     filename: PathBuf,
     /// State file
     state_file: File,
+    // /// File's `created_at()` timestamp
+    // timestamp: u64,
+    /// Last position saved
+    /// To make sure to not trigger writes every time for nothing
+    position: u64,
 }
 
 impl SavedState {
     pub fn new(filename: &PathBuf) -> Result<Self> {
         let state_filename = format!(
-            ".{}-file-trailer-saved-state",
+            ".{}.file-trailer-saved-state",
             (*filename).to_str().unwrap()
         );
 
@@ -217,6 +220,7 @@ impl SavedState {
         Ok(Self {
             filename: filename.to_owned(),
             state_file,
+            position: 0,
         })
     }
 
@@ -267,12 +271,19 @@ impl SavedState {
 
     /// Save state in a file
     pub fn save(&mut self, pos: u64) -> Result<()> {
-        debug!("Saving a sate at position <{}>", pos);
+        if self.position == pos {
+            trace!("Position has already been saved");
+            return Ok(());
+        } else {
+            debug!("Saving a state at position <{}>", pos);
+        }
 
         let data = format!("{};{}", self.get_date_created()?, pos);
         self.state_file.set_len(0)?; // truncate the file before writing it
         self.state_file.seek(SeekFrom::Start(0))?; // reset the cursor position to the beginning
         self.state_file.write_all(data.as_bytes())?;
+
+        self.position = pos;
 
         Ok(())
     }

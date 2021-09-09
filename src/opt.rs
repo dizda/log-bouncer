@@ -26,9 +26,9 @@ pub struct Opt {
     pub rotate_file_interval: u64,
 
     /// Rotated files will have a date on their filenames,
-    /// can change the current structure `%Y-%m-%d-%H-%M-%S`
-    #[clap(short, long)]
-    pub date_format: Option<String>,
+    /// can change the current structure
+    #[clap(short, long, default_value = "%Y-%m-%d_%H-%M-%S")]
+    pub date_format: String,
 
     /// This is the capacity of the publish queue
     /// If it's set to 1, it will wait for amqp to finish publish the only message in the buffer

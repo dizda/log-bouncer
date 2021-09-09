@@ -14,6 +14,8 @@ impl OutputAdapter for AmqpOutput {
             .publish_raw(&self.exchange, &self.routing_key, line.as_bytes().to_vec())
             .await?;
 
+        // tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
         Ok(())
     }
 }
