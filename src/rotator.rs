@@ -30,7 +30,9 @@ pub struct Rotator {
     /// Log file that needs to be watched & rotated
     filename: PathBuf,
     /// Rotation checks interval
-    interval: Duration,
+    rotation_interval: Duration,
+    /// Save state interval
+    save_state_interval: Duration,
     /// Receive the current offset position on the file
     state_rx: watch::Receiver<u64>,
     /// The SavedState will be saved in a file.
@@ -46,7 +48,8 @@ pub struct Rotator {
 impl Rotator {
     pub fn new(
         filename: PathBuf,
-        interval: Duration,
+        rotation_interval: Duration,
+        save_state_interval: Duration,
         state_rx: watch::Receiver<u64>,
         max_size: u64,
         date_format: String,
@@ -64,7 +67,8 @@ impl Rotator {
             state_rx,
             state: saved_state,
             max_size,
-            interval,
+            rotation_interval,
+            save_state_interval,
             pos,
         })
     }
@@ -149,43 +153,48 @@ impl Rotator {
     async fn work(&mut self) {
         info!(
             "Will check for file rotation every {}ms",
-            self.interval.as_millis()
+            self.rotation_interval.as_millis()
         );
-        let mut interval = tokio::time::interval(self.interval);
+        let mut rotate_interval = tokio::time::interval(self.rotation_interval);
+        let mut state_interval = tokio::time::interval(self.save_state_interval);
 
         // first tick completes immediately
-        interval.tick().await;
+        rotate_interval.tick().await;
+        state_interval.tick().await;
 
         loop {
-            interval.tick().await;
-            trace!("Tick: do a job");
-
-            // TODO: Better to use an AtomicU64 here?
-            let pos = *self.state_rx.borrow_and_update();
-
-            if let Err(e) = self.state.save(pos) {
-                error!("Can't save current state: `{}`", e);
-            }
-
-            match self.can_be_rotated().await {
-                Ok(res) => {
-                    if res {
-                        if let Err(e) = self.rotate().await {
-                            error!("Can't rotate the file: `{}`", e);
-                        } else {
-                            // file has been rotated, we reset the last position
-                            if let Err(e) = self.state.reset() {
-                                error!("Can't reset the state, after rotating the file: `{}`", e);
+            tokio::select! {
+                _ = rotate_interval.tick() => {
+                    trace!("Tick(rotate): do a job");
+                    match self.can_be_rotated().await {
+                        Ok(res) => {
+                            if res {
+                                if let Err(e) = self.rotate().await {
+                                    error!("Can't rotate the file: `{}`", e);
+                                } else {
+                                    // file has been rotated, we reset the last position
+                                    if let Err(e) = self.state.reset() {
+                                        error!("Can't reset the state, after rotating the file: `{}`", e);
+                                    }
+                                }
+                            } else {
+                                debug!("File can't be rotated, yet");
                             }
                         }
-                    } else {
-                        debug!("File can't be rotated, yet");
+                        Err(e) => debug!("Can't rotate the file: `{}`", e),
                     }
                 }
-                Err(e) => debug!("Can't rotate the file: `{}`", e),
-            }
+                _ = state_interval.tick() => {
+                    trace!("Tick(state): do a job");
 
-            trace!("Tick: lap");
+                    // TODO: Better to use an AtomicU64 here?
+                    let pos = *self.state_rx.borrow_and_update();
+
+                    if let Err(e) = self.state.save(pos) {
+                        error!("Can't save current state: `{}`", e);
+                    }
+                }
+            }
         }
     }
 }

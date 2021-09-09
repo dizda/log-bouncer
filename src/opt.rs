@@ -25,6 +25,11 @@ pub struct Opt {
     #[clap(short, long, default_value = "5", env)]
     pub rotate_file_interval: u64,
 
+    /// Check if the file needs to be rotated
+    /// value in milliseconds
+    #[clap(short, long, default_value = "500", env)]
+    pub save_state_interval: u64,
+
     /// Rotated files will have a date on their filenames,
     /// can change the current structure
     #[clap(short, long, default_value = "%Y-%m-%d_%H-%M-%S")]

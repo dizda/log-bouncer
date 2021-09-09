@@ -35,6 +35,7 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
     let rotator = Rotator::new(
         opts.file.clone(),
         Duration::from_secs(opts.rotate_file_interval),
+        Duration::from_millis(opts.save_state_interval),
         state_rx,
         opts.max_filesize,
         opts.date_format,
