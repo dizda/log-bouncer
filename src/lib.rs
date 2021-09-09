@@ -17,8 +17,6 @@ use std::error::Error;
 use std::time::Duration;
 use tokio::sync::{mpsc, watch};
 
-// TODO: 1. Rotate at a Line break
-
 pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
     env_logger::init();
     info!("Started!");
