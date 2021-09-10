@@ -1,5 +1,5 @@
 use chrono::Utc;
-use std::fs::{File};
+use std::fs::File;
 use std::io::{Read, Seek, Write};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -283,9 +283,15 @@ impl SavedState {
     /// Get the `created_at` from the file, converted to a timestamp
     pub fn get_date_created(&self) -> Result<u64> {
         let metadata = std::fs::metadata(&self.filename)?;
-        let date_created = metadata.created()?.duration_since(SystemTime::UNIX_EPOCH)?;
 
-        Ok(date_created.as_secs())
+        if let Ok(date_created) = metadata.created() {
+            Ok(date_created
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs())
+        } else {
+            Ok(0u64)
+        }
     }
 
     /// Reset the position to the beginning of the file
