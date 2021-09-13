@@ -25,3 +25,6 @@ chrono = "0.4.19"
 thiserror = "1.0.29"
 amqp-lapin-helper = "0.1.1"
 clap = "3.0.0-beta.4"
+
+[target.x86_64-unknown-linux-musl.dependencies]
+openssl = { version = "*", features = ["vendored"] }
