@@ -1,9 +1,9 @@
-use clap::{Clap};
+use clap::Clap;
 use std::path::PathBuf;
 
-/// # File-trailer
+/// # Log Bouncer
 ///
-/// File trailer will listen a log file then:
+/// Log bouncer will listen on a log file then:
 ///
 ///  - publish any new message to AMQP
 ///  - rotate logs automatically
