@@ -27,9 +27,12 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
     // The last position of the file to sync
     let (state_tx, state_rx) = watch::channel::<u64>(0);
 
+    // in case the user submit "test.log", canonicalize will get the absolute path
+    let absolute_path = std::fs::canonicalize(&opts.file)?;
+
     // Rotate the file periodically
     let rotator = Rotator::new(
-        opts.file.clone(),
+        absolute_path.clone(),
         Duration::from_secs(opts.rotate_file_interval),
         Duration::from_millis(opts.save_state_interval),
         state_rx,
@@ -39,7 +42,7 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
     state_tx.send(rotator.get_position())?; // we store the last position
 
     // Tail the file and send new entries
-    let watcher = TailReader::new(opts.file, rotator.get_position(), publish_tx)?.work();
+    let watcher = TailReader::new(absolute_path, rotator.get_position(), publish_tx)?.work();
 
     let rotator_handle = rotator.watch();
 
