@@ -23,7 +23,7 @@ env_logger = "0.9.0"
 async-trait = "0.1.52"
 chrono = "0.4.19"
 thiserror = "1.0.30"
-amqp-lapin-helper = "0.2.1"
+amqp-lapin-helper = "0.2.2"
 clap = "3.0.0-beta.4"
 crc = "2.1.0"
 
