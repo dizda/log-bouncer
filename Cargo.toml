@@ -17,15 +17,15 @@ name = "log_bouncer"
 
 [dependencies]
 logwatcher = { git = "https://github.com/dizda/logwatcher", branch = "feat-pos" }
-tokio = { version = "1.11.0", features = ["full"] }
+tokio = { version = "1.17.0", features = ["full"] }
 log = "0.4.14"
 env_logger = "0.9.0"
-async-trait = "0.1.51"
+async-trait = "0.1.52"
 chrono = "0.4.19"
-thiserror = "1.0.29"
-amqp-lapin-helper = "0.1.1"
+thiserror = "1.0.30"
+amqp-lapin-helper = "0.2.1"
 clap = "3.0.0-beta.4"
-crc = "2.0.0"
+crc = "2.1.0"
 
 [target.x86_64-unknown-linux-musl.dependencies]
 openssl = { version = "*", features = ["vendored"] }
