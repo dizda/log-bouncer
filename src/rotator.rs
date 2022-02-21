@@ -172,29 +172,29 @@ impl Rotator {
 
         loop {
             tokio::select! {
-                _ = rotate_interval.tick() => {
-                    trace!("Tick(rotate): do a job");
-                    match self.can_be_rotated().await {
-                        Ok(res) => {
-                            if res {
-                                if let Err(e) = self.rotate().await {
-                                    error!("Can't rotate the file: `{}`", e);
-                                } else {
-                                    // file has been rotated, we reset the last position
-                                    if let Err(e) = self.state.reset() {
-                                        error!("Can't reset the state, after rotating the file: `{}`", e);
-                                    }
-
-                                    // we discard this value as we just changed the file
-                                    let _pos = *self.state_rx.borrow_and_update();
-                                }
-                            } else {
-                                debug!("File can't be rotated, yet");
-                            }
-                        }
-                        Err(e) => debug!("Can't rotate the file: `{}`", e),
-                    }
-                }
+                // _ = rotate_interval.tick() => {
+                //     trace!("Tick(rotate): do a job");
+                //     match self.can_be_rotated().await {
+                //         Ok(res) => {
+                //             if res {
+                //                 if let Err(e) = self.rotate().await {
+                //                     error!("Can't rotate the file: `{}`", e);
+                //                 } else {
+                //                     // file has been rotated, we reset the last position
+                //                     if let Err(e) = self.state.reset() {
+                //                         error!("Can't reset the state, after rotating the file: `{}`", e);
+                //                     }
+                //
+                //                     // we discard this value as we just changed the file
+                //                     let _pos = *self.state_rx.borrow_and_update();
+                //                 }
+                //             } else {
+                //                 debug!("File can't be rotated, yet");
+                //             }
+                //         }
+                //         Err(e) => debug!("Can't rotate the file: `{}`", e),
+                //     }
+                // }
                 _ = state_interval.tick() => {
                     trace!("Tick(state): do a job");
 
