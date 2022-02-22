@@ -46,9 +46,9 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
 
     let rotator_handle = rotator.watch();
 
-    // let output = StdOut {};
-    let output =
-        AmqpOutput::new(&opts.amqp_uri, &opts.amqp_exchange, &opts.amqp_routing_key).await?;
+    let output = output::stdout::StdOut {};
+    // let output =
+    //     AmqpOutput::new(&opts.amqp_uri, &opts.amqp_exchange, &opts.amqp_routing_key).await?;
 
     // Send the new entries to the publisher, eg. amqp
     let mut publisher = Publisher::new(output, publish_rx, state_tx);
