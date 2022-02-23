@@ -4,16 +4,16 @@ extern crate log;
 pub mod opt;
 pub mod output;
 mod publisher;
+mod reader;
 mod rotator;
 mod tail;
-mod watcher;
 
 pub use opt::{parse, Opt};
 
 use crate::output::amqp::AmqpOutput;
 use crate::publisher::Publisher;
+use crate::reader::{LineInfo, Reader};
 use crate::rotator::Rotator;
-use crate::watcher::{LineInfo, TailReader};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -44,7 +44,7 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
     state_tx.send(rotator.get_position())?; // we store the last position
 
     // Tail the file and send new entries
-    let tail = TailReader::new(absolute_path, rotator.get_position(), publish_tx)?;
+    let tail = Reader::new(absolute_path, rotator.get_position(), publish_tx)?;
     let watcher = tail.work();
 
     let rotator_handle = rotator.watch();

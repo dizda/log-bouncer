@@ -1,5 +1,5 @@
 use crate::output::OutputAdapter;
-use crate::watcher::LineInfo;
+use crate::reader::LineInfo;
 use tokio::sync::{mpsc, watch};
 
 // TODO: Or we could use a different (probably safer) way to make the publisher concurrent:

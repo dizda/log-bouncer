@@ -13,7 +13,7 @@ const TAIL_WAIT_DURATION: Duration = Duration::from_millis(500);
 pub type LineInfo = (u64, String);
 
 /// Read a file, then send every new line to the other thread
-pub struct TailReader {
+pub struct Reader {
     /// Path of the file to monitor
     path: PathBuf,
     /// The recovered position from the last launch
@@ -22,7 +22,7 @@ pub struct TailReader {
     tx: Sender<LineInfo>,
 }
 
-impl TailReader {
+impl Reader {
     pub fn new(path: PathBuf, pos: u64, tx: Sender<LineInfo>) -> Result<Self, Box<dyn Error>> {
         info!("Recovered the cursor from the position `{}`", pos);
 
