@@ -5,7 +5,7 @@ use std::error::Error;
 #[derive(thiserror::Error, Debug)]
 pub enum StdOutError {
     #[error("corrupted line found")]
-    Ok,
+    Corrupted,
 }
 
 #[async_trait]
@@ -14,13 +14,8 @@ impl OutputAdapter for StdOut {
         info!("got = {}", line);
 
         if line.chars().last().unwrap() != '}' {
-            Err(StdOutError::Ok)?;
+            Err(StdOutError::Corrupted)?;
         }
-
-        // test an error:
-        // let not_found = std::io::Error::from(std::io::ErrorKind::NotFound);
-        // Err(not_found)?;
-        //tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
         Ok(())
     }
