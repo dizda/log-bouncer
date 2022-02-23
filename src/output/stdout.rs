@@ -13,9 +13,9 @@ impl OutputAdapter for StdOut {
     async fn send(&self, _position: u64, line: String) -> Result<(), Box<dyn Error>> {
         info!("got = {}", line);
 
-        if line.chars().last().unwrap() != '}' {
-            Err(StdOutError::Corrupted)?;
-        }
+        // if line.chars().last().unwrap() != '}' {
+        //     Err(StdOutError::Corrupted)?;
+        // }
 
         Ok(())
     }
