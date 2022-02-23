@@ -24,7 +24,7 @@ pub struct Reader {
 
 impl Reader {
     pub fn new(path: PathBuf, pos: u64, tx: Sender<LineInfo>) -> Result<Self, Box<dyn Error>> {
-        info!("Recovered the cursor from the position `{}`", pos);
+        info!("Recovered the cursor from the position <{}>", pos);
 
         Ok(Self { path, pos, tx })
     }

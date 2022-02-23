@@ -52,6 +52,10 @@ pub struct Opt {
 
     #[clap(long, env)]
     pub amqp_routing_key: String,
+
+    /// Print output in JSON rather than plaintext
+    #[clap(long)]
+    pub json: bool,
 }
 
 pub fn parse() -> Opt {

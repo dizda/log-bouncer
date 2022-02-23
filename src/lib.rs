@@ -1,5 +1,6 @@
+#[forbid(unsafe_code)]
 #[macro_use]
-extern crate log;
+extern crate tracing;
 
 pub mod opt;
 pub mod output;
@@ -18,9 +19,21 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::sync::{mpsc, watch};
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::EnvFilter;
 
 pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
-    env_logger::init();
+    // Build a logger subscriber
+    let log = tracing_subscriber::fmt().with_env_filter(EnvFilter::from_default_env());
+
+    if opts.json {
+        // activates json logging output
+        log.json().finish().init();
+    } else {
+        // or simply plain text
+        log.finish().init();
+    }
+
     info!("Started!");
 
     // Bounded 1 channel to make sure the watcher won't make any more progress in case rabbitmq
