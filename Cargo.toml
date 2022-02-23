@@ -16,7 +16,8 @@ name = "log_bouncer"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-logwatcher = { git = "https://github.com/dizda/logwatcher", branch = "feat-pos" }
+logwatcher = { git = "https://github.com/dizda/logwatcher", branch = "master" }
+#logwatcher = { path = "../logwatcher" }
 tokio = { version = "1.17.0", features = ["full"] }
 log = "0.4.14"
 env_logger = "0.9.0"
@@ -29,3 +30,6 @@ crc = "2.1.0"
 
 [target.x86_64-unknown-linux-musl.dependencies]
 openssl = { version = "*", features = ["vendored"] }
+
+[dev-dependencies]
+tempfile = "3"

@@ -476,6 +476,7 @@ dependencies = [
  "log",
  "logwatcher",
  "openssl",
+ "tempfile",
  "thiserror",
  "tokio",
 ]
@@ -483,7 +484,7 @@ dependencies = [
 [[package]]
 name = "logwatcher"
 version = "0.1.1"
-source = "git+https://github.com/dizda/logwatcher?branch=feat-pos#dcf24a5b1b8ec2faa8f0313784e70a460ea53b99"
+source = "git+https://github.com/dizda/logwatcher?branch=master#84de5be5246754c9455d236956e1200c2caaeb78"
 
 [[package]]
 name = "matches"

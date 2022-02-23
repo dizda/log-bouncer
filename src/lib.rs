@@ -5,6 +5,7 @@ pub mod opt;
 pub mod output;
 mod publisher;
 mod rotator;
+// mod tail;
 mod watcher;
 
 pub use opt::{parse, Opt};
