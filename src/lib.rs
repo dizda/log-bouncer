@@ -5,7 +5,7 @@ pub mod opt;
 pub mod output;
 mod publisher;
 mod rotator;
-// mod tail;
+mod tail;
 mod watcher;
 
 pub use opt::{parse, Opt};
@@ -15,6 +15,7 @@ use crate::publisher::Publisher;
 use crate::rotator::Rotator;
 use crate::watcher::{LineInfo, TailReader};
 use std::error::Error;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tokio::sync::{mpsc, watch};
 
@@ -43,7 +44,8 @@ pub async fn run(opts: Opt) -> Result<(), Box<dyn Error>> {
     state_tx.send(rotator.get_position())?; // we store the last position
 
     // Tail the file and send new entries
-    let watcher = TailReader::new(absolute_path, rotator.get_position(), publish_tx)?.work();
+    let tail = TailReader::new(absolute_path, rotator.get_position(), publish_tx)?;
+    let watcher = tail.work();
 
     let rotator_handle = rotator.watch();
 

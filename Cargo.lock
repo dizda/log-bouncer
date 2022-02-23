@@ -474,17 +474,11 @@ dependencies = [
  "crc",
  "env_logger",
  "log",
- "logwatcher",
  "openssl",
  "tempfile",
  "thiserror",
  "tokio",
 ]
-
-[[package]]
-name = "logwatcher"
-version = "0.1.1"
-source = "git+https://github.com/dizda/logwatcher?branch=master#84de5be5246754c9455d236956e1200c2caaeb78"
 
 [[package]]
 name = "matches"

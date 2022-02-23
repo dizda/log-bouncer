@@ -37,6 +37,10 @@ type Result<T> = std::result::Result<T, Error>;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
+    #[error("the file has been rotated, file's position has been reset to 0")]
+    FileRotated,
+    #[error("the file has been truncated, file's position has been reset to 0")]
+    FileTruncated,
     #[error("i/o: {0}")]
     IO(#[from] std::io::Error),
     #[error("str-utf8: {0}")]
@@ -73,63 +77,76 @@ where
         let f = File::open(path)?;
         let meta = f.metadata()?;
         let pos = meta.len();
+
         Ok(TailedFile { path, pos, meta })
     }
 
-    /// Reads new data for an instance of `staart::TailedFile` and returns
-    /// `Result<Vec<u8>>`
-    pub fn read(&mut self, file: &File) -> Result<Vec<u8>> {
+    /// Reads new lines and return the ones that finishes with line breaker "\n"
+    pub fn read(&mut self, file: &File) -> Result<Vec<String>> {
         let mut reader = BufReader::new(file);
-        let mut line = String::new();
+        let mut lines = vec![];
         reader.seek(SeekFrom::Start(self.pos))?;
-        let n: u64 = reader.read_line(&mut line)?.try_into()?;
-        self.pos += n;
-        let data: Vec<u8> = line.collect();
+
+        loop {
+            let mut line = String::new();
+            let n: u64 = reader.read_line(&mut line)? as u64;
+
+            if n == 0 || !line.ends_with('\n') {
+                // EOF or the line doesn't contain a line breaker, therefore shouldn't be added
+                break;
+            }
+
+            lines.push(line.replace('\n', "")); // line breakers should be removed
+            self.pos += n;
+        }
+
+        Ok(lines)
+    }
+
+    /// Prints new data read on an instance of `staart::TailedFile` to `stdout`
+    pub fn follow(&mut self) -> Result<Vec<String>> {
+        let fd = File::open(self.path)?;
+        self.has_been_rotated(&fd)?;
+        self.has_been_truncated(&fd)?;
+        let data = self.read(&fd)?;
+
         Ok(data)
     }
 
-    /// Prints new data read on an instance of `staart::TailedFile` to `stdout`
-    pub fn follow(&mut self) -> Result<String> {
-        let fd = File::open(self.path)?;
-        self.check_rotate(&fd)?;
-        self.check_truncate(&fd)?;
-        let data = self.read(&fd)?;
-
-        Ok(String::from_utf8(data)?)
-    }
-
-    /// Prints new data read on an instance of `staart::TailedFile` to `stdout`
-    pub fn follow_print_stdout(&mut self) -> Result<()> {
-        let fd = File::open(self.path)?;
-        self.check_rotate(&fd)?;
-        self.check_truncate(&fd)?;
-        let data = self.read(&fd)?;
-        if let Ok(s) = String::from_utf8(data) {
-            print!("{s}")
-        }
-        Ok(())
-    }
-
     /// Checks for file rotation by inode comparison in Linux-like systems
-    fn check_rotate(&mut self, fd: &File) -> Result<()> {
+    fn has_been_rotated(&mut self, fd: &File) -> Result<()> {
         let meta = fd.metadata()?;
         let inode = meta.st_ino();
         if inode != self.meta.st_ino() {
             self.pos = 0;
             self.meta = meta;
+
+            Err(Error::FileRotated)?; // trigger an error
         }
+
         Ok(())
     }
 
     /// Checks for file truncation by length comparison to the previous read position
-    fn check_truncate(&mut self, fd: &File) -> Result<()> {
+    fn has_been_truncated(&mut self, fd: &File) -> Result<()> {
         let meta = fd.metadata()?;
         let inode = meta.st_ino();
         let len = meta.len();
         if inode == self.meta.st_ino() && len < self.pos {
             self.pos = 0;
+
+            Err(Error::FileTruncated)?; // trigger an error
         }
+
         Ok(())
+    }
+
+    pub fn pos(&self) -> u64 {
+        self.pos
+    }
+
+    pub fn set_pos(&mut self, pos: u64) {
+        self.pos = pos
     }
 }
 #[cfg(test)]
@@ -152,18 +169,49 @@ mod tests {
         assert!(tailed_file.is_ok())
     }
 
+    /// All lines contains line breakers "\n"
+    /// they should be added as they're considered as fully written
     #[test]
     fn test_read() {
         let dir = tempfile::tempdir().unwrap();
         let path = &dir.path().join("test.file");
-        let test_data = b"Some data";
+        let test_data = b"{\"data\":\"coucou1\"}
+{\"data\":\"coucou2\"}
+{\"data\":\"coucou3\"}
+";
+
         let mut f = File::create(&path).unwrap();
         let mut tailed_file = TailedFile::new(&path).unwrap();
         f.write_all(test_data).unwrap();
         let f = File::open(&path).unwrap();
-        let data = tailed_file.read(&f).unwrap();
-        assert_eq!(data.len(), test_data.len());
-        assert_eq!(tailed_file.pos, 9);
+        let read_data = tailed_file.read(&f).unwrap();
+
+        assert_eq!(read_data.len(), 3);
+        assert_eq!(tailed_file.pos, test_data.len() as u64);
+
+        for line in read_data {
+            // making sure line breakers have been removed
+            assert!(!line.contains('\n'));
+        }
+    }
+
+    /// The last line doesn't contain a line breaker, thus it should be ignored because the line may
+    /// have not been finished to be written.
+    #[test]
+    fn test_read_with_one_missing_line_breaker() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = &dir.path().join("test.file");
+        let test_data = b"{\"data\":\"coucou1\"}
+{\"data\":\"coucou2\"}
+{\"data\":\"coucou3\"}";
+
+        let mut f = File::create(&path).unwrap();
+        let mut tailed_file = TailedFile::new(&path).unwrap();
+        f.write_all(test_data).unwrap();
+        let f = File::open(&path).unwrap();
+        let read_data = tailed_file.read(&f).unwrap();
+        assert_eq!(read_data.len(), 2); // only 2 here
+        assert_eq!(tailed_file.pos, 38); // and the position should be before the third line
     }
 
     #[test]
@@ -179,9 +227,13 @@ mod tests {
         std::fs::rename(&path, &path2).unwrap();
         let mut f = File::create(&path).unwrap();
         f.write_all(more_test_data).unwrap();
-        tailed_file.check_rotate(&f).unwrap();
 
+        assert_eq!(
+            "Err(FileRotated)",
+            format!("{:?}", tailed_file.has_been_rotated(&f))
+        );
         assert_eq!(tailed_file.meta.st_ino(), f.metadata().unwrap().st_ino());
+        assert_eq!(tailed_file.pos, 0)
     }
 
     #[test]
@@ -195,7 +247,10 @@ mod tests {
         let mut tailed_file = TailedFile::new(&path).unwrap();
         let mut f = File::create(&path).unwrap();
         f.write_all(more_test_data).unwrap();
-        tailed_file.check_truncate(&f).unwrap();
+        assert_eq!(
+            "Err(FileTruncated)",
+            format!("{:?}", tailed_file.has_been_truncated(&f))
+        );
         assert_eq!(tailed_file.pos, 0)
     }
 }
